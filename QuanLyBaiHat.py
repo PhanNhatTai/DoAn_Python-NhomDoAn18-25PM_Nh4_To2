@@ -1,6 +1,43 @@
 from tkinter import *
 from tkcalendar import DateEntry
 from tkinter import ttk,messagebox
+import pyodbc
+#Kết nối tới SQL Sever
+TEN_SERVER = '(local)'
+TEN_CSDL = 'QLBH'
+MATHELOAI = {}
+def lay_ket_noi():
+    try:
+        conn = pyodbc.connect(
+            f'DRIVER={{SQL Server}};'
+            f'SERVER={TEN_SERVER};'
+            f'DATABASE={TEN_CSDL};'
+            f'Trusted_Connection=yes;'  # Dùng tài khoản Windows để đăng nhập
+        )
+        return conn
+    except Exception as e:
+        messagebox.showerror("Lỗi kết nối", f"Không kết nối được SQL Server!\nLỗi: {e}")
+        return None
+#Dịch từ thể loại thành mã thể loại
+def tai_danh_sach_the_loai():
+    """Hàm này lấy dữ liệu từ bảng THELOAI để nạp vào Combobox"""
+    global MATHELOAI
+    conn = lay_ket_noi()
+    if conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT tentheloai, matheloai FROM THELOAI")
+        data = cursor.fetchall()
+        
+        # Tạo từ điển mapping: Tên -> Mã
+        MATHELOAI = {row[0]: row[1] for row in data}
+        
+        # Cập nhật giá trị cho Combobox
+        Theloai['values'] = list(MATHELOAI.keys())
+        conn.close()
+
+def lay_ma_the_loai(ten_the_loai):
+    """Chuyển đổi từ 'Nhạc Trẻ' -> 'TL01' để lưu vào CSDL"""
+    return MATHELOAI.get(ten_the_loai)
 #Hàm canh giữa cửa sổ
 def center_window(win, rong, dai):
     ws = win.winfo_screenwidth()
@@ -38,13 +75,55 @@ Ngayramat.grid(row=1,column=3,padx=5,pady=5,sticky="w")
 Label(thongtin,text="Thể loại",font=("Arial",15)).grid(row=2,column=0,padx=5,pady=5,sticky="w")
 Theloai=ttk.Combobox(thongtin,values=["Rap","Trữ tình","Dân ca","Pop","Rock","Ballad"],width=20)
 Theloai.grid(row=2, column=1, padx=(5,50), pady=5, sticky="w")
+#Chức năng tìm kiếm (theo mã bài hát) và sắp xếp (theo thể loại)
+def tim_kiem():
+    ma_can_tim = timkiem.get()
+    if ma_can_tim == "":
+        messagebox.showwarning("Cảnh báo", "Vui lòng nhập mã bài hát cần tìm!")
+        return
+    
+    # Xóa bảng cũ
+    for item in bang.get_children(): bang.delete(item)
+    
+    conn = lay_ket_noi()
+    cursor = conn.cursor()
+    # SQL: Tìm những bài có mã chứa từ khóa (LIKE)
+    sql = """
+        SELECT B.maso, B.tenbaihat, B.tencasi, B.ngayramat, T.tentheloai 
+        FROM BAIHAT B JOIN THELOAI T ON B.matheloai = T.matheloai
+        WHERE B.maso LIKE ?
+    """
+    cursor.execute(sql, (f"%{ma_can_tim}%",)) # Thêm dấu % để tìm tương đối
+    rows = cursor.fetchall()
+    
+    if len(rows) == 0:
+        messagebox.showinfo("Thông báo", "Không tìm thấy bài hát nào!")
+    
+    for row in rows:
+        bang.insert("", END, values=list(row))
+    conn.close()
+def sap_xep():
+    for item in bang.get_children(): bang.delete(item)
+    conn = lay_ket_noi()
+    cursor = conn.cursor()
+    # SQL: Thêm ORDER BY tentheloai để sắp xếp
+    sql = """
+        SELECT B.maso, B.tenbaihat, B.tencasi, B.ngayramat, T.tentheloai 
+        FROM BAIHAT B JOIN THELOAI T ON B.matheloai = T.matheloai
+        ORDER BY T.tentheloai ASC
+    """
+    cursor.execute(sql)
+    for row in cursor.fetchall():
+        bang.insert("", END, values=list(row))
+    conn.close()
 #Nút tìm kiếm và sắp xếp
 tkvasx=Frame(root)
 tkvasx.pack(pady=5, fill="x", padx=20)
-Label(tkvasx,text="Tìm kiếm(Theo mã bài hát)",font=("Arial",10,"bold")).grid(row=0,column=0,padx=10)
-timkiem=Entry(tkvasx,width=30).grid(row=0,column=1)
-Button(tkvasx,text="Tìm").grid(row=0,column=2)
-Button(tkvasx,text="Sắp xếp theo thể loại").grid(row=0,column=3,padx=150)
+Label(tkvasx,text="Tìm kiếm (Theo mã bài hát)",font=("Arial",10,"bold")).grid(row=0,column=0,padx=10)
+timkiem=Entry(tkvasx,width=30)
+timkiem.grid(row=0,column=1)
+Button(tkvasx,text="Tìm",command=tim_kiem).grid(row=0,column=2,padx=2)
+Button(tkvasx,text="Sắp xếp theo thể loại",command=sap_xep).grid(row=0,column=3,padx=150)
 #Bảng danh sách bài hát
 ds_baihat=Label(root,text="Danh sách bài hát",font=("Arial",15,"bold")).pack(pady=5, anchor="w", padx=10)
 cot=("Mã bài hát","Tên bài hát","Tên ca sĩ","Ngày ra mắt","Thể loại")
@@ -58,47 +137,124 @@ bang.column("Ngày ra mắt", width=70, anchor="center")
 bang.column("Thể loại", width=100, anchor="center")
 bang.pack(padx=10, pady=5, fill="both")
 #Hàm chức năng
+def tai_du_lieu_len_bang():
+    for item in bang.get_children(): bang.delete(item)
+    conn = lay_ket_noi()
+    if conn:
+        cursor = conn.cursor()
+        # Dùng câu lệnh JOIN để lấy Tên Thể Loại thay vì Mã Thể Loại
+        sql = """
+            SELECT B.maso, B.tenbaihat, B.tencasi, B.ngayramat, T.tentheloai 
+            FROM BAIHAT B 
+            JOIN THELOAI T ON B.matheloai = T.matheloai
+        """
+        cursor.execute(sql)
+        for row in cursor.fetchall():
+            bang.insert("", END, values=list(row))
+        conn.close()
 def them_bh():
-    maso = Maso.get()
-    tencasi = Tencasi.get()
-    tenbaihat = Tenbaihat.get()
-    ngayramat = Ngayramat.get()
-    theloai = Theloai.get()
-    if maso == "" or tencasi == "" or tenbaihat == "":
-        messagebox.showwarning("Thiếu dữ liệu", "Vui lòng nhập đủ thông tin")
+    ms = Maso.get()
+    tbh = Tenbaihat.get()
+    tcs = Tencasi.get()
+    nrm = Ngayramat.get()
+    ten_tl = Theloai.get()
+    # Chuyển tên thể loại (Pop) thành mã (TL01)
+    ma_tl = lay_ma_the_loai(ten_tl)
+
+    if not ms or not ma_tl or not tbh or not tcs:
+        messagebox.showwarning("Thiếu dữ liệu")
         return
-def luu_bh():
-    maso = Maso.get()
-    tencasi = Tencasi.get()
-    tenbaihat = Tenbaihat.get()
-    ngayramat = Ngayramat.get()
-    theloai = Theloai.get()
+    try:
+        conn = lay_ket_noi()
+        cursor = conn.cursor()
+        # Câu lệnh Insert đúng với bảng của bạn
+        sql = "INSERT INTO BAIHAT (maso, tencasi, tenbaihat, ngayramat, matheloai) VALUES (?, ?, ?, ?, ?)"
+        cursor.execute(sql, (ms, tcs, tbh, nrm, ma_tl))
+        conn.commit()
+        conn.close()
+        messagebox.showinfo("OK", "Thêm thành công!")
+        tai_du_lieu_len_bang()
+        huy_dulieu()
+    except Exception as e:
+        messagebox.showerror("Lỗi SQL", str(e))
 def sua_bh():
-    chon = bang.selection()
-    if not chon:
-        messagebox.showwarning("Chưa chọn", "Hãy chọn nhân viên để sửa")
+    chon_sua = bang.selection()
+    if not chon_sua:
+        messagebox.showwarning("Chưa chọn", "Chọn dòng cần sửa")
         return
-    values = bang.item(chon)["values"]
-    Maso.delete(0, END)
-    Maso.insert(0, values[0])
-    Tencasi.delete(0, END)
-    Tencasi.insert(0, values[1])
-    Tenbaihat.delete(0, END)
-    Tenbaihat.insert(0, values[2])
-    Ngayramat.set_date(values[3])
-    Theloai.set(values[4])
-def huy_dulieu():
-    Maso.delete(0, END)
-    Tencasi.delete(0, END)
-    Tenbaihat.delete(0, END)
-    Ngayramat.set_date("2000-01-01")
-    Theloai.set("")
+    ma_tl = lay_ma_the_loai(Theloai.get()) # Lấy mã thể loại từ tên đang chọn
+    try:
+        conn = lay_ket_noi()
+        cursor = conn.cursor()
+        sql = """
+            UPDATE BAIHAT 
+            SET tencasi=?, tenbaihat=?, ngayramat=?, matheloai=? 
+            WHERE maso=?
+        """
+        cursor.execute(sql, (Tencasi.get(), Tenbaihat.get(), Ngayramat.get(), ma_tl, Maso.get()))
+        conn.commit()
+        conn.close()
+        messagebox.showinfo("OK", "Cập nhật thành công!")
+        tai_du_lieu_len_bang()
+        huy_dulieu()
+    except Exception as e:
+        messagebox.showerror("Lỗi SQL", str(e))
 def xoa_bh():
+    chon_xoa = bang.selection()
+    if not chon_xoa: return
+    ms_xoa = bang.item(chon_xoa)['values'][0]
+    if messagebox.askyesno("Xóa", "Bạn chắc chắn muốn xóa?"):
+        try:
+            conn = lay_ket_noi()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM BAIHAT WHERE maso = ?", (ms_xoa,))
+            conn.commit()
+            conn.close()
+            tai_du_lieu_len_bang()
+            huy_dulieu()
+        except Exception as e:
+            messagebox.showerror("Lỗi", str(e))
+def huy_dulieu():
+# 1. Xóa trắng các ô nhập liệu (Code cũ của bạn)
+    Maso.delete(0, END)
+    Tencasi.delete(0, END)
+    Tenbaihat.delete(0, END)
+    Ngayramat.set_date("2024-01-01") # Hoặc ngày mặc định bạn muốn
+    Theloai.set("")
+    # 2. Xóa trắng ô tìm kiếm luôn (Thêm dòng này)
+    timkiem.delete(0, END)
+    # 3. TẢI LẠI TOÀN BỘ DANH SÁCH (Phần thêm mới vào đây)
+    # Xóa sạch bảng hiện tại
+    for item in bang.get_children():
+        bang.delete(item)
+    try:
+        conn = pyodbc.connect('DRIVER={SQL Server};SERVER=.;DATABASE=QLBH;Trusted_Connection=yes;')
+        cursor = conn.cursor()
+        # Câu lệnh SQL lấy TẤT CẢ (không có WHERE)
+        sql = """
+            SELECT B.maso, B.tenbaihat, B.tencasi, B.ngayramat, T.tentheloai 
+            FROM BAIHAT B 
+            JOIN THELOAI T ON B.matheloai = T.matheloai
+        """
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        for row in rows:
+            bang.insert("", END, values=list(row))
+        conn.close()
+    except Exception as e:
+        messagebox.showerror("Lỗi", f"Lỗi tải lại dữ liệu: {e}")
+def do_du_lieu(event):
     selected = bang.selection()
-    if not selected:
-        messagebox.showwarning("Chưa chọn", "Hãy chọn nhân viên để xóa")
-        return
-    maso = bang.item(selected)["values"][0]
+    if selected:
+        values = bang.item(selected)['values']
+        Maso.delete(0, END); Maso.insert(0, values[0])
+        Tenbaihat.delete(0, END); Tenbaihat.insert(0, values[1])
+        Tencasi.delete(0, END); Tencasi.insert(0, values[2])
+        Ngayramat.set_date(values[3])
+        Theloai.set(values[4])
+def luu_bh():
+    messagebox.showinfo("Thông báo", "Dữ liệu đã được lưu khi bạn bấm Thêm/Sửa.")
+bang.bind("<<TreeviewSelect>>", do_du_lieu)
 #Frame nút
 nut=Frame(root)
 nut.pack(pady=5)
@@ -108,5 +264,6 @@ Button(nut, text="Sửa", width=8, command=sua_bh).grid(row=0, column=2,padx=5)
 Button(nut, text="Hủy", width=8, command=huy_dulieu).grid(row=0,column=3, padx=5)
 Button(nut, text="Xóa", width=8, command=xoa_bh).grid(row=0, column=4,padx=5)
 Button(nut, text="Thoát", width=8, command=root.quit).grid(row=0,column=5, padx=5)
-
+tai_danh_sach_the_loai()
+tai_du_lieu_len_bang()
 root.mainloop() 
