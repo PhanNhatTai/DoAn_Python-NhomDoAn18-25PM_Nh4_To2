@@ -12,31 +12,29 @@ def lay_ket_noi():
             f'DRIVER={{SQL Server}};'
             f'SERVER={TEN_SERVER};'
             f'DATABASE={TEN_CSDL};'
-            f'Trusted_Connection=yes;'  # Dùng tài khoản Windows để đăng nhập
+            f'Trusted_Connection=yes;'
         )
         return conn
     except Exception as e:
         messagebox.showerror("Lỗi kết nối", f"Không kết nối được SQL Server!\nLỗi: {e}")
         return None
+#Chỉnh màu
+MAU_NEN = "#F0F2F5"
+MAU_NUT = "#639CD6"
+MAU_NUT_XOA = "#FA0429"
+MAU_CHU = "Black"     
 #Dịch từ thể loại thành mã thể loại
 def tai_danh_sach_the_loai():
-    """Hàm này lấy dữ liệu từ bảng THELOAI để nạp vào Combobox"""
     global MATHELOAI
     conn = lay_ket_noi()
     if conn:
         cursor = conn.cursor()
         cursor.execute("SELECT tentheloai, matheloai FROM THELOAI")
         data = cursor.fetchall()
-        
-        # Tạo từ điển mapping: Tên -> Mã
         MATHELOAI = {row[0]: row[1] for row in data}
-        
-        # Cập nhật giá trị cho Combobox
         Theloai['values'] = list(MATHELOAI.keys())
         conn.close()
-
 def lay_ma_the_loai(ten_the_loai):
-    """Chuyển đổi từ 'Nhạc Trẻ' -> 'TL01' để lưu vào CSDL"""
     return MATHELOAI.get(ten_the_loai)
 #Hàm canh giữa cửa sổ
 def center_window(win, rong, dai):
@@ -50,29 +48,30 @@ root = Tk()
 root.title("Quản lý bài hát")
 center_window(root, 750, 550)
 root.resizable(FALSE,FALSE)
+root.configure(bg=MAU_NEN)
 #Tiêu đề
-Label(root,text="QUẢN LÝ BÀI HÁT",fg="DarkGreen",font=("Arial", 18, "bold")).pack(pady=10)
+Label(root,text="QUẢN LÝ BÀI HÁT",font=("Arial", 18, "bold"),bg=MAU_NEN,fg="DarkGreen").pack(pady=10)
 #Frame nhập thông tin
-thongtin=Frame(root)
+thongtin=Frame(root,bg=MAU_NEN)
 thongtin.pack(pady=5, padx=10, fill="x")
     #Mã bài hát
-Label(thongtin,text="Mã bài hát",font=("Arial",15)).grid(row=0, column=0, padx=5, pady=5,sticky="w")
+Label(thongtin,text="Mã bài hát",font=("Arial",15),bg=MAU_NEN,fg=MAU_CHU).grid(row=0, column=0, padx=5, pady=5,sticky="w")
 Maso=Entry(thongtin,width=20)
 Maso.grid(row=0, column=1, padx=(5,50), pady=5, sticky="w")
     #Tên ca sĩ
-Label(thongtin,text="Tên ca sĩ",font=("Arial",15)).grid(row=0, column=2, padx=2, pady=5,sticky="w")
+Label(thongtin,text="Tên ca sĩ",font=("Arial",15),bg=MAU_NEN,fg=MAU_CHU).grid(row=0, column=2, padx=2, pady=5,sticky="w")
 Tencasi=Entry(thongtin,width=20)
 Tencasi.grid(row=0,column=3,padx=5,pady=5,sticky="w")
     #Tên bài hát
-Label(thongtin,text="Tên bài hát",font=("Arial",15)).grid(row=1, column=0, padx=5, pady=5,sticky="w")
+Label(thongtin,text="Tên bài hát",font=("Arial",15),bg=MAU_NEN,fg=MAU_CHU).grid(row=1, column=0, padx=5, pady=5,sticky="w")
 Tenbaihat=Entry(thongtin,width=20)
 Tenbaihat.grid(row=1, column=1, padx=(5,50), pady=5, sticky="w")
     #Ngày ra mắt
-Label(thongtin,text="Ngày ra mắt",font=("Arial",15)).grid(row=1,column=2,padx=5,pady=5,sticky="w")
+Label(thongtin,text="Ngày ra mắt",font=("Arial",15),bg=MAU_NEN,fg=MAU_CHU).grid(row=1,column=2,padx=5,pady=5,sticky="w")
 Ngayramat=DateEntry(thongtin,width=12,background="black",foreground="white", date_pattern="yyyy-mm-dd")
 Ngayramat.grid(row=1,column=3,padx=5,pady=5,sticky="w")
     #Thể loại
-Label(thongtin,text="Thể loại",font=("Arial",15)).grid(row=2,column=0,padx=5,pady=5,sticky="w")
+Label(thongtin,text="Thể loại",font=("Arial",15),bg=MAU_NEN,fg=MAU_CHU).grid(row=2,column=0,padx=5,pady=5,sticky="w")
 Theloai=ttk.Combobox(thongtin,values=["Rap","Trữ tình","Dân ca","Pop","Rock","Ballad"],width=20)
 Theloai.grid(row=2, column=1, padx=(5,50), pady=5, sticky="w")
 #Chức năng tìm kiếm (theo mã bài hát) và sắp xếp (theo thể loại)
@@ -81,24 +80,19 @@ def tim_kiem():
     if ma_can_tim == "":
         messagebox.showwarning("Cảnh báo", "Vui lòng nhập mã bài hát cần tìm!")
         return
-    
     # Xóa bảng cũ
     for item in bang.get_children(): bang.delete(item)
-    
     conn = lay_ket_noi()
     cursor = conn.cursor()
-    # SQL: Tìm những bài có mã chứa từ khóa (LIKE)
     sql = """
         SELECT B.maso, B.tenbaihat, B.tencasi, B.ngayramat, T.tentheloai 
         FROM BAIHAT B JOIN THELOAI T ON B.matheloai = T.matheloai
         WHERE B.maso LIKE ?
     """
-    cursor.execute(sql, (f"%{ma_can_tim}%",)) # Thêm dấu % để tìm tương đối
+    cursor.execute(sql, (f"%{ma_can_tim}%",))
     rows = cursor.fetchall()
-    
     if len(rows) == 0:
         messagebox.showinfo("Thông báo", "Không tìm thấy bài hát nào!")
-    
     for row in rows:
         bang.insert("", END, values=list(row))
     conn.close()
@@ -106,7 +100,6 @@ def sap_xep():
     for item in bang.get_children(): bang.delete(item)
     conn = lay_ket_noi()
     cursor = conn.cursor()
-    # SQL: Thêm ORDER BY tentheloai để sắp xếp
     sql = """
         SELECT B.maso, B.tenbaihat, B.tencasi, B.ngayramat, T.tentheloai 
         FROM BAIHAT B JOIN THELOAI T ON B.matheloai = T.matheloai
@@ -117,15 +110,17 @@ def sap_xep():
         bang.insert("", END, values=list(row))
     conn.close()
 #Nút tìm kiếm và sắp xếp
-tkvasx=Frame(root)
+tkvasx=Frame(root,bg=MAU_NEN)
 tkvasx.pack(pady=5, fill="x", padx=20)
-Label(tkvasx,text="Tìm kiếm (Theo mã bài hát)",font=("Arial",10,"bold")).grid(row=0,column=0,padx=10)
+    #Nút tìm kiếm 
+Label(tkvasx,text="Tìm kiếm (Theo mã bài hát)",font=("Arial",10,"bold"),bg=MAU_NEN,fg=MAU_CHU).grid(row=0,column=0,padx=10)
 timkiem=Entry(tkvasx,width=30)
 timkiem.grid(row=0,column=1)
-Button(tkvasx,text="Tìm",command=tim_kiem).grid(row=0,column=2,padx=2)
-Button(tkvasx,text="Sắp xếp theo thể loại",command=sap_xep).grid(row=0,column=3,padx=150)
+Button(tkvasx,text="Tìm",bg=MAU_NUT,command=tim_kiem).grid(row=0,column=2,padx=2)
+    #Nút sắp xếp
+Button(tkvasx,text="Sắp xếp theo thể loại",bg=MAU_NUT,command=sap_xep).grid(row=0,column=3,padx=150)
 #Bảng danh sách bài hát
-ds_baihat=Label(root,text="Danh sách bài hát",font=("Arial",15,"bold")).pack(pady=5, anchor="w", padx=10)
+ds_baihat=Label(root,text="Danh sách bài hát",font=("Arial",15,"bold"),bg=MAU_NEN,fg=MAU_CHU).pack(pady=5, anchor="w", padx=10)
 cot=("Mã bài hát","Tên bài hát","Tên ca sĩ","Ngày ra mắt","Thể loại")
 bang=ttk.Treeview(root, columns=cot,show="headings",height=10)
 for col in cot:
@@ -142,7 +137,6 @@ def tai_du_lieu_len_bang():
     conn = lay_ket_noi()
     if conn:
         cursor = conn.cursor()
-        # Dùng câu lệnh JOIN để lấy Tên Thể Loại thay vì Mã Thể Loại
         sql = """
             SELECT B.maso, B.tenbaihat, B.tencasi, B.ngayramat, T.tentheloai 
             FROM BAIHAT B 
@@ -158,16 +152,14 @@ def them_bh():
     tcs = Tencasi.get()
     nrm = Ngayramat.get()
     ten_tl = Theloai.get()
-    # Chuyển tên thể loại (Pop) thành mã (TL01)
+    # Chuyển tên thể loại thành mã
     ma_tl = lay_ma_the_loai(ten_tl)
-
     if not ms or not ma_tl or not tbh or not tcs:
         messagebox.showwarning("Thiếu dữ liệu")
         return
     try:
         conn = lay_ket_noi()
         cursor = conn.cursor()
-        # Câu lệnh Insert đúng với bảng của bạn
         sql = "INSERT INTO BAIHAT (maso, tencasi, tenbaihat, ngayramat, matheloai) VALUES (?, ?, ?, ?, ?)"
         cursor.execute(sql, (ms, tcs, tbh, nrm, ma_tl))
         conn.commit()
@@ -182,7 +174,7 @@ def sua_bh():
     if not chon_sua:
         messagebox.showwarning("Chưa chọn", "Chọn dòng cần sửa")
         return
-    ma_tl = lay_ma_the_loai(Theloai.get()) # Lấy mã thể loại từ tên đang chọn
+    ma_tl = lay_ma_the_loai(Theloai.get())
     try:
         conn = lay_ket_noi()
         cursor = conn.cursor()
@@ -215,22 +207,21 @@ def xoa_bh():
         except Exception as e:
             messagebox.showerror("Lỗi", str(e))
 def huy_dulieu():
-# 1. Xóa trắng các ô nhập liệu (Code cũ của bạn)
+    #Xóa trắng các ô nhập liệu
     Maso.delete(0, END)
     Tencasi.delete(0, END)
     Tenbaihat.delete(0, END)
-    Ngayramat.set_date("2024-01-01") # Hoặc ngày mặc định bạn muốn
+    Ngayramat.set_date("2024-01-01")
     Theloai.set("")
-    # 2. Xóa trắng ô tìm kiếm luôn (Thêm dòng này)
+    #Xóa trắng ô tìm kiếm luôn
     timkiem.delete(0, END)
-    # 3. TẢI LẠI TOÀN BỘ DANH SÁCH (Phần thêm mới vào đây)
+    #TẢI LẠI TOÀN BỘ DANH SÁCH
     # Xóa sạch bảng hiện tại
     for item in bang.get_children():
         bang.delete(item)
     try:
         conn = pyodbc.connect('DRIVER={SQL Server};SERVER=.;DATABASE=QLBH;Trusted_Connection=yes;')
         cursor = conn.cursor()
-        # Câu lệnh SQL lấy TẤT CẢ (không có WHERE)
         sql = """
             SELECT B.maso, B.tenbaihat, B.tencasi, B.ngayramat, T.tentheloai 
             FROM BAIHAT B 
@@ -252,18 +243,15 @@ def do_du_lieu(event):
         Tencasi.delete(0, END); Tencasi.insert(0, values[2])
         Ngayramat.set_date(values[3])
         Theloai.set(values[4])
-def luu_bh():
-    messagebox.showinfo("Thông báo", "Dữ liệu đã được lưu khi bạn bấm Thêm/Sửa.")
 bang.bind("<<TreeviewSelect>>", do_du_lieu)
 #Frame nút
-nut=Frame(root)
+nut=Frame(root,bg=MAU_NEN)
 nut.pack(pady=5)
-Button(nut, text="Thêm", width=8, command=them_bh).grid(row=0, column=0,padx=5)
-Button(nut, text="Lưu", width=8, command=luu_bh).grid(row=0, column=1,padx=5)
-Button(nut, text="Sửa", width=8, command=sua_bh).grid(row=0, column=2,padx=5)
-Button(nut, text="Hủy", width=8, command=huy_dulieu).grid(row=0,column=3, padx=5)
-Button(nut, text="Xóa", width=8, command=xoa_bh).grid(row=0, column=4,padx=5)
-Button(nut, text="Thoát", width=8, command=root.quit).grid(row=0,column=5, padx=5)
+Button(nut, text="Thêm",bg=MAU_NUT, width=8, command=them_bh).grid(row=0, column=0,padx=5)
+Button(nut, text="Sửa",bg=MAU_NUT, width=8, command=sua_bh).grid(row=0, column=1,padx=5)
+Button(nut, text="Hủy",bg=MAU_NUT, width=8, command=huy_dulieu).grid(row=0,column=2, padx=5)
+Button(nut, text="Xóa",bg=MAU_NUT_XOA, width=8, command=xoa_bh).grid(row=0, column=3,padx=5)
+Button(nut, text="Thoát",bg=MAU_NUT, width=8, command=root.quit).grid(row=0,column=4, padx=5)
 tai_danh_sach_the_loai()
 tai_du_lieu_len_bang()
-root.mainloop() 
+root.mainloop()
