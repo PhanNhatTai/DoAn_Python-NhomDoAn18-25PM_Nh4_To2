@@ -164,7 +164,7 @@ def them_bh():
         cursor.execute(sql, (ms, tcs, tbh, nrm, ma_tl))
         conn.commit()
         conn.close()
-        messagebox.showinfo("OK", "Thêm thành công!")
+        messagebox.showinfo("Thêm dữ liệu", "Thêm thành công!")
         tai_du_lieu_len_bang()
         huy_dulieu()
     except Exception as e:
