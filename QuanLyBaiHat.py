@@ -1,6 +1,7 @@
 from tkinter import *
 from tkcalendar import DateEntry
 from tkinter import ttk,messagebox
+from datetime import date
 import pyodbc
 #Kết nối tới SQL Sever
 TEN_SERVER = '(local)'
@@ -207,16 +208,12 @@ def xoa_bh():
         except Exception as e:
             messagebox.showerror("Lỗi", str(e))
 def huy_dulieu():
-    #Xóa trắng các ô nhập liệu
     Maso.delete(0, END)
     Tencasi.delete(0, END)
     Tenbaihat.delete(0, END)
-    Ngayramat.set_date("2024-01-01")
+    Ngayramat.set_date(date.today())
     Theloai.set("")
-    #Xóa trắng ô tìm kiếm luôn
     timkiem.delete(0, END)
-    #TẢI LẠI TOÀN BỘ DANH SÁCH
-    # Xóa sạch bảng hiện tại
     for item in bang.get_children():
         bang.delete(item)
     try:
