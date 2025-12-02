@@ -1,8 +1,10 @@
 from tkinter import *
 from tkcalendar import DateEntry
-from tkinter import ttk,messagebox
+from tkinter import ttk,messagebox,filedialog
 from datetime import date
 import pyodbc
+import pandas as pd
+import webbrowser
 #Kết nối tới SQL Sever
 TEN_SERVER = '(local)'
 TEN_CSDL = 'QLBH'
@@ -240,6 +242,38 @@ def do_du_lieu(event):
         Tencasi.delete(0, END); Tencasi.insert(0, values[2])
         Ngayramat.set_date(values[3])
         Theloai.set(values[4])
+def xuat_excel():
+    duong_dan=filedialog.asksaveasfilename(
+        defaultextension=".xlsx",
+        filetypes=[("Excel Files","*.xlsx"),("All Files","*.*")],
+        title="Chọn nơi lưu danh sách bài hát"
+    )
+    if not duong_dan :
+        return 
+    try :
+        conn = lay_ket_noi()
+        sql="""
+            SELECT B.maso, B.tenbaihat, B.tencasi, B.ngayramat, T.tentheloai
+            FROM BAIHAT B
+            JOIN THELOAI T ON B.matheloai = T.matheloai
+        """
+        df=pd.read_sql(sql,conn)
+        df.columns=['Mã Bài Hát','Tên Bài Hát','Tên Ca Sĩ','Ngày Ra Mắt','Thể Loại']
+        df.to_excel(duong_dan,index=False)
+        conn.close()
+        messagebox.showinfo("Thành công",f"Đã xuất ra file excel tại:\n{duong_dan}")
+    except Exception as e :
+        messagebox.showerror("Lỗi",f"Không xuất file excel thành công\n Lỗi:{e}")
+def phat_nhac():
+    chon=bang.selection()
+    if not chon:
+        messagebox.showwarning("Chưa chọn bài hát","Vui lòng chọn bài hát")
+        return
+    values = bang.item(chon)['values']
+    ten_bai_hat=values[1]
+    ten_ca_si=values[2]
+    tu_khoa=f"{ten_bai_hat} {ten_ca_si}"
+    webbrowser.open(f"https://www.youtube.com/results?search_query={tu_khoa}")
 bang.bind("<<TreeviewSelect>>", do_du_lieu)
 #Frame nút
 nut=Frame(root,bg=MAU_NEN)
@@ -248,7 +282,9 @@ Button(nut, text="Thêm",bg=MAU_NUT, width=8, command=them_bh).grid(row=0, colum
 Button(nut, text="Sửa",bg=MAU_NUT, width=8, command=sua_bh).grid(row=0, column=1,padx=5)
 Button(nut, text="Hủy",bg=MAU_NUT, width=8, command=huy_dulieu).grid(row=0,column=2, padx=5)
 Button(nut, text="Xóa",bg=MAU_NUT_XOA, width=8, command=xoa_bh).grid(row=0, column=3,padx=5)
-Button(nut, text="Thoát",bg=MAU_NUT, width=8, command=root.quit).grid(row=0,column=4, padx=5)
+Button(nut, text="Xuất File Excel",bg=MAU_NUT, width=12, command=xuat_excel).grid(row=0, column=4,padx=5)
+Button(nut, text="Phát Nhạc",bg=MAU_NUT, width=10, command=phat_nhac).grid(row=0, column=5,padx=5)
+Button(nut, text="Thoát",bg=MAU_NUT, width=8, command=root.quit).grid(row=0,column=6, padx=5)
 tai_danh_sach_the_loai()
 tai_du_lieu_len_bang()
 root.mainloop()
